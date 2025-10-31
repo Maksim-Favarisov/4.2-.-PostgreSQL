@@ -32,21 +32,27 @@ CREATE OR REPLACE FUNCTION export_yesterday_to_csv()
 RETURNS TEXT AS $$
 DECLARE
     file_path TEXT;
+ 	max_timestamp TIMESTAMP;
 BEGIN
+	-- Получаем максимальную дату через
+	SELECT MAX(changed_at) INTO max_timestamp 
+    FROM users_audit 
+    WHERE changed_at >= (CURRENT_DATE - 1) 
+            AND changed_at < CURRENT_DATE;
     -- Формируем путь к файлу с датой/временем
     file_path := '/tmp/users_audit_export_' || 
-                 to_char(CURRENT_TIMESTAMP, 'YYYYMMDD_HH24MI') || '.csv';
+                 to_char(max_timestamp, 'YYYYMMDD_HH24MI') || '.csv';
     -- Сохраняем данные за вчера в файл
     EXECUTE format('
         COPY (
             SELECT user_id,
-				           field_changed, 
-				           old_value, 
-				           new_value, 
-				           changed_by, 
-				           changed_at FROM users_audit 
+				   field_changed, 
+				   old_value, 
+				   new_value, 
+				   changed_by, 
+				   changed_at FROM users_audit 
             WHERE changed_at >= (CURRENT_DATE - 1) 
-            AND changed_at < CURRENT_DATE
+            AND changed_at < CURRENT_DATE 
         ) TO %L WITH CSV HEADER',
         file_path
     );
